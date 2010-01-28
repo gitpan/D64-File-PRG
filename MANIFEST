@@ -1,0 +1,6 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/D64-File-PRG.t
+lib/D64/File/PRG.pm
