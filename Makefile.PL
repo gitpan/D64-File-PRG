@@ -5,5 +5,5 @@ WriteMakefile(
     PREREQ_PM         => {},
     ($] >= 5.005 ?
       (ABSTRACT_FROM  => 'lib/D64/File/PRG.pm',
-       AUTHOR         => 'Pawel Krol <djgruby@gmail.com>') : ()),
+       AUTHOR         => 'Pawel Krol <pawelkrol@cpan.org>') : ()),
 );

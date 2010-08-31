@@ -1,10 +1,10 @@
 package D64::File::PRG;
 
-=head1 D64::File::PRG
+=head1 NAME
 
-D64::File::PRG - Perl module for handling individual C64's PRG files.
+D64::File::PRG - Handling individual C64's PRG files.
 
-=head2 SYNOPSIS
+=head1 SYNOPSIS
 
   use D64::File::PRG;
 
@@ -18,24 +18,22 @@ D64::File::PRG - Perl module for handling individual C64's PRG files.
 
   $prg->write_file('FILE' => $file);
 
-=head2 DESCRIPTION
+=head1 DESCRIPTION
 
 D64::File::PRG is a Perl module providing the set of methods for handling individual C64's PRG files. It enables an easy access to the raw contents of any PRG file, manipulation of its loading address, and transforming binary data into assembly code understood by tools like "Dreamass" or "Turbo Assembler".
 
-=head2 METHODS
+=head1 METHODS
 
 =cut
 
+use bytes;
 use strict;
 use warnings;
 
 use Carp;
 use Exporter;
 
-use bytes;
-use open IN => ':bytes', OUT => ':bytes';
-
-our $VERSION     = '0.01';
+our $VERSION     = '0.02';
 our @ISA         = qw(Exporter);
 our @EXPORT      = ();
 our @EXPORT_OK   = qw();
@@ -43,7 +41,7 @@ our %EXPORT_TAGS = (default => [qw()]);
 
 local $| = 1;
 
-=head3 new
+=head2 new
 
 A new D64::File::PRG object instance is created either by providing the path to an existing file, which is then being read into a memory, or by providing a scalar reference to the raw binary data with an accompanying loading address. This is illustrated by the following examples:
 
@@ -114,7 +112,7 @@ sub _get_loading_address_from_scalar {
     $self->{'LOADING_ADDRESS'} = $loading_address;
 }
 
-=head3 read_file
+=head2 read_file
 
 While operating an existing D64::File::PRG object instance, there is no need to create a new one when you simply want to replace it with the contents of another file, that is if you only want to load a new data (however you need to create a new object instance if you want to provide raw data through a scalar reference - this limitation should be patched with the next release of this module). The example follows:
 
@@ -135,7 +133,7 @@ sub read_file {
     # Read data from file:
     $self->_verbose_message('MESSAGE' => "Opening file \"${file}\" for reading", 'ERROR' => 0) if $verbose;
     open my $fh, '<', $file or $self->_verbose_message('MESSAGE' => "could not open filehandle for \"${file}\" file", 'ERROR' => 1);
-    binmode $fh;
+    binmode $fh, ':bytes';
     $self->_get_loading_address_from_file('FILEHANDLE' => $fh, 'VERBOSE' => $verbose);
     $self->_get_raw_contents_from_file('FILEHANDLE' => $fh, 'VERBOSE' => $verbose);
     close $fh or $self->_verbose_message('MESSAGE' => "could not close opened filehandle for \"${file}\" file", 'ERROR' => 1);
@@ -190,7 +188,6 @@ sub _get_loading_address_from_file {
     $bytes_count = sysread $fh, $load_addr_lo, 1;
     if ($bytes_count != 1) {
         $self->_verbose_message('MESSAGE' => "unexpected end of file while reading loading address from \"${file}\" filehandle", 'ERROR' => 1);
-        
     }
     $bytes_count = sysread $fh, $load_addr_hi, 1;
     if ($bytes_count != 1) {
@@ -202,7 +199,7 @@ sub _get_loading_address_from_file {
     $self->{'LOADING_ADDRESS'} = $loading_address;
 }
 
-=head3 get_data
+=head2 get_data
 
 All raw data can be accessed through this method. You might explicitly want to request the format of a data retrieved. By default the raw content is collected unless you otherwise specify to get an assembly formatted source code. In both cases a scalar value is returned. In the latter case you are able to provide an additional parameter indicating how many byte values will be returned on a single line (these are 8 bytes by default). Here are a couple of examples:
 
@@ -315,7 +312,7 @@ sub _add_loading_address_to_scalarref {
     ${$data_ref} .= chr (hex $addr_hi);
 }
 
-=head3 change_loading_address
+=head2 change_loading_address
 
 You can modify original file loading address by performing the following operation:
 
@@ -337,7 +334,7 @@ sub change_loading_address {
     $self->_verbose_message('MESSAGE' => "File loading address has been succesfully updated", 'ERROR' => 0) if $verbose;
 }
 
-=head3 write_file
+=head2 write_file
 
 There is a command allowing you to save the whole contents into a disk file:
 
@@ -366,7 +363,7 @@ sub write_file {
         }
     }
     open my $fh, '>', $file or $self->_verbose_message('MESSAGE' => "could not open filehandle for \"${file}\" file", 'ERROR' => 1);
-    binmode $fh;
+    binmode $fh, ':bytes';
     $self->_write_loading_address_to_file('FILEHANDLE' => $fh, 'VERBOSE' => $verbose);
     $self->_write_raw_contents_to_file('FILEHANDLE' => $fh, 'VERBOSE' => $verbose);
     close $fh or $self->_verbose_message('MESSAGE' => "could not close opened filehandle for \"${file}\" file", 'ERROR' => 1);
@@ -428,7 +425,7 @@ sub _verbose_message {
     }
 }
 
-=head2 EXAMPLES
+=head1 EXAMPLES
 
 Retrieving raw data as an assembly formatted source code can be expressed using the following few lines of Perl code:
 
@@ -447,27 +444,27 @@ When executed, it prints out the source code that is ready for compilation:
                   .byte $05
   ;---------------------------------------
 
-=head2 BUGS
+=head1 BUGS
 
 There are no known bugs at the moment. Please report any bugs or feature requests.
 
-=head2 EXPORT
+=head1 EXPORT
 
 None. No method is exported into the caller's namespace either by default or explicitly.
 
-=head2 SEE ALSO
+=head1 SEE ALSO
 
 I am working on the set of modules providing an easy way to access and manipulate the contents of D64 disk images and T64 tape images. D64::File::PRG is the first module of this set, as it provides operations necessary for handling individual C64's PRG files, which are the smallest building blocks for those images. Upon completion I am going to successively upload all my new modules into the CPAN.
 
-=head2 AUTHOR
+=head1 AUTHOR
 
-Pawel Krol, E<lt>djgruby@gmail.comE<gt>.
+Pawel Krol, E<lt>pawelkrol@cpan.orgE<gt>.
 
-=head2 VERSION
+=head1 VERSION
 
-Version 0.01 (2010-01-28)
+Version 0.02 (2010-10-31)
 
-=head2 COPYRIGHT AND LICENSE
+=head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2010 by Pawel Krol.
 

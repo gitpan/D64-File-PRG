@@ -1,4 +1,4 @@
-D64::File::PRG Version 0.01
+D64::File::PRG Version 0.02
 ===========================
 
 D64::File::PRG is a Perl module providing the set of methods for handling individual C64's PRG files. It enables an easy access to the raw contents of any PRG file, manipulation of its loading address, and transforming binary data into assembly code understood by tools like "Dreamass" or "Turbo Assembler".
@@ -11,14 +11,6 @@ To install this module type the following:
    make
    make test
    make install
-
-DEPENDENCIES
-
-This module requires these other modules and libraries:
-
-  Carp
-  Exporter
-  Test::More
 
 COPYRIGHT AND LICENCE
 

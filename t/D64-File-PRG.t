@@ -1,5 +1,5 @@
 #########################
-use Test::More tests => 6;
+use Test::More tests => 7;
 BEGIN { use_ok('D64::File::PRG') };
 #########################
 {
@@ -38,5 +38,13 @@ my $prog = D64::File::PRG->new('RAW_DATA' => \$data, 'LOADING_ADDRESS' => 0x5A59
 my $src  = $prog->get_data('FORMAT' => 'ASM', 'ROW_LENGTH' => 2);
 ( my $line = (split /\n/, $src)[3] ) =~ s/^\s*(.*?)\s*$/$1/;
 is ($line, '.byte $4d, $4e', 'assembly source code output formatting');
+}
+#########################
+{
+my $data = join ('', map {chr} (0x50,0x0d,0x0a,0x0a,0x0d,0x51));
+my $prog = D64::File::PRG->new('RAW_DATA' => \$data, 'LOADING_ADDRESS' => 0x5A59);
+my $raw  = $prog->get_data('LOAD_ADDR_INCL' => 0);
+$raw = join ('', map { sprintf "%c", (ord $_ | 0x50) } (split //, $raw));
+is ($raw, 'P]ZZ]Q', 'handling binary data correctly');
 }
 #########################
