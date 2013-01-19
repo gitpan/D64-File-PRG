@@ -2,7 +2,7 @@ package D64::File::PRG;
 
 =head1 NAME
 
-D64::File::PRG - Handling individual C64's PRG files.
+D64::File::PRG - Handling individual C64's PRG files
 
 =head1 SYNOPSIS
 
@@ -15,6 +15,10 @@ D64::File::PRG - Handling individual C64's PRG files.
 
   my $data = $prg->get_data();
   my $data = $prg->get_data('FORMAT' => 'ASM', 'ROW_LENGTH' => 10);
+
+  $prg->set_data('RAW_DATA' => \$data, 'LOADING_ADDRESS' => 0x1000);
+  $prg->set_data('RAW_DATA' => \$data);
+  $prg->set_file_data('FILE_DATA' => \$file_data);
 
   $prg->write_file('FILE' => $file);
 
@@ -32,8 +36,10 @@ use warnings;
 
 use Carp;
 use Exporter;
+use IO::Scalar;
+use Scalar::Util qw(looks_like_number);
 
-our $VERSION     = '0.02';
+our $VERSION     = '0.03';
 our @ISA         = qw(Exporter);
 our @EXPORT      = ();
 our @EXPORT_OK   = qw();
@@ -88,10 +94,6 @@ sub _initialize {
         }
         $self->_get_loading_address_from_scalar('LOADING_ADDRESS' => $loading_address, 'VERBOSE' => $verbose);
         # RAW_DATA: binary data provided as a raw data scalar
-        unless (ref $raw_data_ref eq 'SCALAR') {
-            my $raw_data_reftype = ref ($raw_data_ref) ? ( ref ($raw_data_ref) . ' reference' ) : 'SCALAR itself';
-            $self->_verbose_message('MESSAGE' => "raw data has to be a SCALAR reference (but is a ${raw_data_reftype})", 'ERROR' => 1);
-        }
         $self->_get_raw_contents_from_scalarref('RAW_DATA' => $raw_data_ref, 'VERBOSE' => $verbose);
     }
     $self->_verbose_message('MESSAGE' => "Returning new object instance upon successful init", 'ERROR' => 0) if $verbose;
@@ -103,6 +105,9 @@ sub _get_loading_address_from_scalar {
     my $params          = {@_};
     my $loading_address = $params->{'LOADING_ADDRESS'}; # externally provided loading address
     my $verbose         = $params->{'VERBOSE'};         # display diagnostic messages
+    unless (looks_like_number $loading_address) {
+        $self->_verbose_message('MESSAGE' => "a non-numeric scalar value cannot be converted into loading address", 'ERROR' => 1);
+    }
     my $loading_address_readable = uc sprintf "\$%04x", $loading_address;
     $self->_verbose_message('MESSAGE' => "Validating value of provided loading address: ${loading_address_readable}", 'ERROR' => 0) if $verbose;
     if ($loading_address < 0x0000 or $loading_address > 0xffff) {
@@ -134,10 +139,21 @@ sub read_file {
     $self->_verbose_message('MESSAGE' => "Opening file \"${file}\" for reading", 'ERROR' => 0) if $verbose;
     open my $fh, '<', $file or $self->_verbose_message('MESSAGE' => "could not open filehandle for \"${file}\" file", 'ERROR' => 1);
     binmode $fh, ':bytes';
-    $self->_get_loading_address_from_file('FILEHANDLE' => $fh, 'VERBOSE' => $verbose);
-    $self->_get_raw_contents_from_file('FILEHANDLE' => $fh, 'VERBOSE' => $verbose);
+    $self->_read_file('FILEHANDLE' => $fh, 'VERBOSE' => $verbose);
     close $fh or $self->_verbose_message('MESSAGE' => "could not close opened filehandle for \"${file}\" file", 'ERROR' => 1);
     $self->_verbose_message('MESSAGE' => "Closing file \"${file}\" upon successful read", 'ERROR' => 0) if $verbose;
+}
+
+sub _read_file {
+    my ($self, %params) = @_;
+
+    my $fh      = $params{FILEHANDLE};
+    my $verbose = $params{VERBOSE};
+
+    $self->_get_loading_address_from_file(FILEHANDLE => $fh, VERBOSE => $verbose);
+    $self->_get_raw_contents_from_file(FILEHANDLE => $fh, VERBOSE => $verbose);
+
+    return;
 }
 
 sub _get_raw_contents_from_scalarref {
@@ -145,6 +161,11 @@ sub _get_raw_contents_from_scalarref {
     my $params       = {@_};
     my $raw_data_ref = $params->{'RAW_DATA'}; # externally provided raw data
     my $verbose      = $params->{'VERBOSE'};  # display diagnostic messages
+    unless (ref $raw_data_ref eq 'SCALAR') {
+        my $raw_data_reftype = ref ($raw_data_ref) ? ( ref ($raw_data_ref) . ' reference' ) : 'SCALAR itself';
+        $self->_verbose_message('MESSAGE' => "raw data has to be a SCALAR reference (but is a ${raw_data_reftype})", 'ERROR' => 1);
+    }
+    $self->{'RAW_DATA'} = []; # empty all previously stored raw file contents
     my ($bytes_count, $byte) = (0);
     $self->_verbose_message('MESSAGE' => "Retrieving raw file contents from a SCALAR reference", 'ERROR' => 0) if $verbose;
     my $raw_data_length = length ${$raw_data_ref};
@@ -186,12 +207,13 @@ sub _get_loading_address_from_file {
     my ($load_addr_lo, $load_addr_hi, $bytes_count);
     $self->_verbose_message('MESSAGE' => "Retrieving loading address from an opened filehandle", 'ERROR' => 0) if $verbose;
     $bytes_count = sysread $fh, $load_addr_lo, 1;
+    my $filename = defined $file ? qq{"${file}"} : q{IO::Scalar};
     if ($bytes_count != 1) {
-        $self->_verbose_message('MESSAGE' => "unexpected end of file while reading loading address from \"${file}\" filehandle", 'ERROR' => 1);
+        $self->_verbose_message('MESSAGE' => "unexpected end of file while reading loading address from $filename filehandle", 'ERROR' => 1);
     }
     $bytes_count = sysread $fh, $load_addr_hi, 1;
     if ($bytes_count != 1) {
-        $self->_verbose_message('MESSAGE' => "unexpected end of file while reading loading address from \"${file}\" filehandle", 'ERROR' => 1);
+        $self->_verbose_message('MESSAGE' => "unexpected end of file while reading loading address from $filename filehandle", 'ERROR' => 1);
     }
     my $loading_address = ord ($load_addr_lo) + 0x100 * ord ($load_addr_hi);
     my $loading_address_readable = uc sprintf "\$%04x", $loading_address;
@@ -204,7 +226,7 @@ sub _get_loading_address_from_file {
 All raw data can be accessed through this method. You might explicitly want to request the format of a data retrieved. By default the raw content is collected unless you otherwise specify to get an assembly formatted source code. In both cases a scalar value is returned. In the latter case you are able to provide an additional parameter indicating how many byte values will be returned on a single line (these are 8 bytes by default). Here are a couple of examples:
 
   my $raw_data = $prg->get_data('FORMAT' => 'RAW', 'LOAD_ADDR_INCL' => 0);
-  my $raw_data = $prg->get_data('FORMAT' => 'ASM', 'LOAD_ADDR_INCL' => 1, 'ROW_LENGTH' => 4);
+  my $asm_data = $prg->get_data('FORMAT' => 'ASM', 'LOAD_ADDR_INCL' => 1, 'ROW_LENGTH' => 4);
 
 There is an additional optional boolean "LOAD_ADDR_INCL", which indicates if a loading address should be included in the output string. For raw contents it defaults to 0, while for assembly source code format it defaults to 1. This is reasonable, as you usually don't want loading address included in a raw data, but it becomes quite useful when compiling a source code.
 
@@ -332,6 +354,48 @@ sub change_loading_address {
     # Update loading address if correct value provided:
     $self->_get_loading_address_from_scalar('LOADING_ADDRESS' => $loading_address, 'VERBOSE' => $verbose);
     $self->_verbose_message('MESSAGE' => "File loading address has been succesfully updated", 'ERROR' => 0) if $verbose;
+}
+
+=head2 set_data
+
+You can update raw program data and its loading address by performing the following operation:
+
+  $prg->set_data('RAW_DATA' => \$data, 'LOADING_ADDRESS' => 0x1000);
+
+You can update raw program data without modifying its loading address by performing the following operation:
+
+  $prg->set_data('RAW_DATA' => \$data);
+
+=cut
+
+sub set_data {
+    my ($self, %params) = @_;
+
+    $self->_get_raw_contents_from_scalarref(%params);
+    $self->change_loading_address(%params) if exists $params{LOADING_ADDRESS};
+
+    return;
+}
+
+=head2 set_file_data
+
+You can replace original program data assuming that its loading address is included within the first two bytes of provided file data by performing the following operation:
+
+  $prg->set_file_data('FILE_DATA' => \$file_data);
+
+=cut
+
+sub set_file_data {
+    my ($self, %params) = @_;
+
+    my $file_data = $params{FILE_DATA};
+    my $verbose   = $params{VERBOSE};
+
+    my $fh = new IO::Scalar $file_data;
+    $self->_read_file(FILEHANDLE => $fh, VERBOSE => $verbose);
+    $fh->close;
+
+    return;
 }
 
 =head2 write_file
@@ -462,11 +526,11 @@ Pawel Krol, E<lt>pawelkrol@cpan.orgE<gt>.
 
 =head1 VERSION
 
-Version 0.02 (2010-10-31)
+Version 0.03 (2013-01-19)
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2010 by Pawel Krol.
+Copyright (C) 2010, 2013 by Pawel Krol.
 
 This library is free open source software; you can redistribute it and/or modify it under the same terms as Perl itself, either Perl version 5.8.6 or, at your option, any later version of Perl 5 you may have available.
 

@@ -2,5 +2,6 @@ Changes
 Makefile.PL
 MANIFEST
 README
-t/D64-File-PRG.t
+t/01-get-data.t
+t/02-set-data.t
 lib/D64/File/PRG.pm
